@@ -542,6 +542,9 @@ public class ClientState {
 						persistence.put(getSendPersistenceKey(message), (MqttPublish) message);
 						tokenStore.saveToken(token, message);
 						break;
+					case 0:
+						tokenStore.saveToken(token, message);
+						break;
 				}
 				pendingMessages.addElement(message);
 				queueLock.notifyAll();
@@ -728,7 +731,6 @@ public class ClientState {
 			// Below might not be necessary since move to nanoTime (Issue #278)
 			//Reduce schedule frequency since System.currentTimeMillis is no accurate, add a buffer
 			//It is 1/10 in minimum keepalive unit.
-			int delta = 100000;
 			long newDelta = delta*1000;
 			
 			// ref bug: https://bugs.eclipse.org/bugs/show_bug.cgi?id=446663
@@ -1367,8 +1369,12 @@ public class ClientState {
 			// Quiesce time up or inflight messages delivered.  Ensure pending delivery
 			// vectors are cleared ready for disconnect to be sent as the final flow.
 			synchronized (queueLock) {
-				pendingMessages.clear();				
-				pendingFlows.clear();
+				if (pendingMessages != null) {
+					pendingMessages.clear();
+				}
+				if (pendingFlows != null) {
+					pendingFlows.clear();
+				}
 				quiescing = false;
 				actualInFlight = 0;
 			}
