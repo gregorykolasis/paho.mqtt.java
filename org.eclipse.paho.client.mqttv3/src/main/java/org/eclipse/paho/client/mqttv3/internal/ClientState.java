@@ -542,9 +542,6 @@ public class ClientState {
 						persistence.put(getSendPersistenceKey(message), (MqttPublish) message);
 						tokenStore.saveToken(token, message);
 						break;
-					case 0:
-						tokenStore.saveToken(token, message);
-						break;
 				}
 				pendingMessages.addElement(message);
 				queueLock.notifyAll();
@@ -732,12 +729,13 @@ public class ClientState {
 			//Reduce schedule frequency since System.currentTimeMillis is no accurate, add a buffer
 			//It is 1/10 in minimum keepalive unit.
 			int delta = 100000;
+			long newDelta = delta*1000;
 			
 			// ref bug: https://bugs.eclipse.org/bugs/show_bug.cgi?id=446663
             synchronized (pingOutstandingLock) {
 
                 // Is the broker connection lost because the broker did not reply to my ping?                                                                                                                                 
-                if (pingOutstanding > 0 && (time - lastInboundActivity >= keepAliveNanos + delta)) {
+                if (pingOutstanding > 0 && (time - lastInboundActivity >= keepAliveNanos + newDelta)) {
                     // lastInboundActivity will be updated once receiving is done.                                                                                                                                        
                     // Add a delta, since the timer and System.currentTimeMillis() is not accurate.     
                 		// TODO - Remove Delta, maybe?
@@ -770,8 +768,8 @@ public class ClientState {
                 //    This would be the case when receiving a large message;                                                                                                                                                  
                 //    the broker needs to keep receiving a regular ping even if the ping response are queued after the long message                                                                                           
                 //    If lacking to do so, the broker will consider my connection lost and cut my socket.                                                                                                                     
-                if ((pingOutstanding == 0 && (time - lastInboundActivity >= keepAliveNanos - delta)) ||
-                    (time - lastOutboundActivity >= keepAliveNanos - delta)) {
+                if ((pingOutstanding == 0 && (time - lastInboundActivity >= keepAliveNanos - newDelta)) ||
+                    (time - lastOutboundActivity >= keepAliveNanos - newDelta)) {
 
                     //@TRACE 620=ping needed. keepAlive={0} lastOutboundActivity={1} lastInboundActivity={2}                                                                                                              
                     log.fine(CLASS_NAME,methodName,"620", new Object[]{ Long.valueOf(this.keepAliveNanos), Long.valueOf(lastOutboundActivity), Long.valueOf(lastInboundActivity)});
@@ -1268,7 +1266,7 @@ public class ClientState {
 	public void disconnected(MqttException reason) {
 		final String methodName = "disconnected";
 		//@TRACE 633=disconnected
-		log.fine(CLASS_NAME,methodName,"633", new Object[] {reason});		
+		log.warning(CLASS_NAME,methodName,"633", new Object[] {reason});
 
 		this.connected = false;
 
@@ -1369,12 +1367,8 @@ public class ClientState {
 			// Quiesce time up or inflight messages delivered.  Ensure pending delivery
 			// vectors are cleared ready for disconnect to be sent as the final flow.
 			synchronized (queueLock) {
-				if (pendingMessages != null) {
-					pendingMessages.clear();
-				}
-				if (pendingFlows != null) {
-					pendingFlows.clear();
-				}
+				pendingMessages.clear();				
+				pendingFlows.clear();
 				quiescing = false;
 				actualInFlight = 0;
 			}

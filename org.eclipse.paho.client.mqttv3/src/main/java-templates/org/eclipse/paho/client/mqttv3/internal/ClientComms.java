@@ -186,9 +186,7 @@ public class ClientComms {
 				//@TRACE 507=Client Connected, Offline Buffer available, but not empty. Adding message to buffer. message={0}
 				log.fine(CLASS_NAME, methodName, "507", new Object[] {message.getKey()});
 				if(disconnectedMessageBuffer.isPersistBuffer()){
-					if (message instanceof MqttPublish) {
-						this.clientState.persistBufferedMessage(message);
-					}
+					this.clientState.persistBufferedMessage(message);
 				}
 				disconnectedMessageBuffer.putMessage(message, token);
 			} else {
@@ -829,7 +827,7 @@ public class ClientComms {
 	private void handleRunException(Exception ex) {
 		final String methodName = "handleRunException";
 		//@TRACE 804=exception
-		log.fine(CLASS_NAME,methodName,"804",null, ex);
+		log.warning(CLASS_NAME,methodName,"804",null, ex);
 		MqttException mex;
 		if ( !(ex instanceof MqttException)) {
 			mex = new MqttException(MqttException.REASON_CODE_CONNECTION_LOST, ex);
